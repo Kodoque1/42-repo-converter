@@ -1,0 +1,36 @@
+name: Test check_42.py
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install pycparser
+        run: pip install pycparser
+
+      - name: Test check_42.py against fixtures
+        run: |
+          set -e
+          for dir in tests/fixtures/*/; do
+            project_name=$(basename "$dir")
+            echo "=== Testing fixture: $project_name ==="
+            (
+              cd "$dir"
+              git init
+              git config project.name "$project_name"
+              python3 "$GITHUB_WORKSPACE/check_42.py"
+            )
+          done
