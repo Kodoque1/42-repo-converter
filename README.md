@@ -14,9 +14,6 @@ repo — while also providing compliance-checking tools that cover the **full
 # Check the current project (reads git config project.name)
 python3 check_42.py
 
-# Enable norminette check via Docker
-python3 check_42.py --norminette
-
 # List every supported project
 python3 check_42.py --list-projects
 
@@ -35,7 +32,6 @@ python3 check_42.py --validate-projects
 | 42 header | **FAIL** | Every `.c` / `.h` file must contain `By: ` in the first 500 chars |
 | Forbidden functions | **FAIL** | AST-based detection via `pycparser` (no false positives from comments/strings) |
 | Relink | **FAIL** | Runs `make` twice; flags the project if the make target is rebuilt unnecessarily |
-| Norminette | **FAIL** | Runs `norminette` via Docker (opt-in: `--norminette`); skips with `[WARN]` when Docker is unavailable |
 
 Output prefixes: `[FAIL]` = hard error (exits 1), `[WARN]` = advisory (exits 0 if no errors).
 
@@ -57,29 +53,23 @@ git config project.name libft   # or ft_printf, minishell, …
   - If a `Resources` section is present it should disclose AI usage with at
     least one of the keywords: `AI`, `artificial intelligence`, `ChatGPT`, `Copilot`.
 
-#### Norminette via Docker
+#### Norminette (CI only)
 
-The checker uses the **pinned** Docker image:
+Norminette style checking is run **in CI only** and is informational — it
+never fails the pipeline.  It is **not** supported in the local script.
 
-```
-ghcr.io/42school/norminette:3.3.10
-```
+The CI pipeline installs `norminette==3.3.51` via pip and runs it against all
+fixture `.c` / `.h` files:
 
-Run locally:
-
-```bash
-docker pull ghcr.io/42school/norminette:3.3.10
-python3 check_42.py --norminette
+```yaml
+- name: Install dependencies
+  run: pip install pycparser norminette==3.3.51
 ```
 
-Or manually:
-
-```bash
-docker run --rm -v "$PWD":/code:ro -w /code ghcr.io/42school/norminette:3.3.10
-```
-
-If Docker is not available the check is skipped with `[WARN]` and the overall
-result is unaffected.
+**Does GitHub cache the pip environment between runs?**  Yes — the workflow
+uses `actions/setup-python` with `cache: 'pip'`, which stores downloaded
+wheels in the runner's pip cache.  On subsequent runs on the same branch the
+packages are restored from cache, so the install step is very fast.
 
 #### Per-project required paths
 
