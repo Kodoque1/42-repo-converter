@@ -14,6 +14,9 @@ repo — while also providing compliance-checking tools that cover the **full
 # Check the current project (reads git config project.name)
 python3 check_42.py
 
+# Enable norminette check via Docker
+python3 check_42.py --norminette
+
 # List every supported project
 python3 check_42.py --list-projects
 
@@ -23,17 +26,76 @@ python3 check_42.py --validate-projects
 
 **What it checks:**
 
-| Check | Details |
-|---|---|
-| 42 header | Every `.c` / `.h` file must contain `By: ` in the first 500 chars |
-| Forbidden functions | AST-based detection via `pycparser` (no false positives from comments/strings) |
-| Relink | Runs `make` twice; flags the project if the make target is rebuilt unnecessarily |
+| Check | Outcome | Details |
+|---|---|---|
+| README.md present | **FAIL** | `README.md` must exist at repository root |
+| README.md structure | **WARN** | First non-empty line should be italicized 42 template; `Description`, `Instructions`, `Resources` sections expected |
+| README.md AI disclosure | **WARN** | `Resources` section should mention AI usage (keywords: AI, artificial intelligence, ChatGPT, Copilot) |
+| Required files | **FAIL** | Per-project required paths must exist (e.g. `Makefile`, `libft.h`) |
+| 42 header | **FAIL** | Every `.c` / `.h` file must contain `By: ` in the first 500 chars |
+| Forbidden functions | **FAIL** | AST-based detection via `pycparser` (no false positives from comments/strings) |
+| Relink | **FAIL** | Runs `make` twice; flags the project if the make target is rebuilt unnecessarily |
+| Norminette | **FAIL** | Runs `norminette` via Docker (opt-in: `--norminette`); skips with `[WARN]` when Docker is unavailable |
+
+Output prefixes: `[FAIL]` = hard error (exits 1), `[WARN]` = advisory (exits 0 if no errors).
 
 Set your project name once:
 
 ```bash
 git config project.name libft   # or ft_printf, minishell, …
 ```
+
+#### README.md rules
+
+- **Mandatory (FAIL)**: `README.md` must exist at the repository root.
+- **Advisory (WARN)** — the following are checked when `README.md` exists but do *not* cause a hard failure:
+  - The first non-empty line should be italicized (`*…*` or `_…_`) and should
+    match the 42 template sentence:
+    *This project has been created as part of the 42 curriculum by …*
+  - The file should contain headings for `Description`, `Instructions`, and
+    `Resources` (matched case-insensitively at any heading level `#`–`######`).
+  - If a `Resources` section is present it should disclose AI usage with at
+    least one of the keywords: `AI`, `artificial intelligence`, `ChatGPT`, `Copilot`.
+
+#### Norminette via Docker
+
+The checker uses the **pinned** Docker image:
+
+```
+ghcr.io/42school/norminette:3.3.10
+```
+
+Run locally:
+
+```bash
+docker pull ghcr.io/42school/norminette:3.3.10
+python3 check_42.py --norminette
+```
+
+Or manually:
+
+```bash
+docker run --rm -v "$PWD":/code:ro -w /code ghcr.io/42school/norminette:3.3.10
+```
+
+If Docker is not available the check is skipped with `[WARN]` and the overall
+result is unaffected.
+
+#### Per-project required paths
+
+Each project definition in `PROJECTS` includes a `required_paths` list.
+To add or modify required paths for a project, edit the corresponding entry in
+`check_42.py`:
+
+```python
+"libft": {
+    "allowed_functions": [...],
+    "make_target": "libft.a",
+    "required_paths": ["Makefile", "libft.h"],  # ← edit here
+},
+```
+
+Any path that is absent from the repository root causes a **FAIL**.
 
 ### `setup_42.sh` — toolchain setup
 

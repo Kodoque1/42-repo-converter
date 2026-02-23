@@ -21,6 +21,12 @@ jobs:
       - name: Install pycparser
         run: pip install pycparser
 
+      - name: Run unit tests
+        run: python3 -m unittest tests/test_check_42.py -v
+
+      - name: Validate PROJECTS dict
+        run: python3 check_42.py --validate-projects
+
       - name: Test check_42.py against fixtures
         run: |
           set -e
@@ -33,4 +39,22 @@ jobs:
               git config project.name "$project_name"
               python3 "$GITHUB_WORKSPACE/check_42.py"
             )
+          done
+
+      - name: Norminette via Docker (pinned image)
+        # Runs norminette on fixture source files using the pinned Docker image.
+        # This step is informational; norm violations are reported but the job
+        # does not fail here so CI remains green while the image is warm.
+        continue-on-error: true
+        run: |
+          set -e
+          IMAGE="ghcr.io/42school/norminette:3.3.10"
+          docker pull "$IMAGE" || { echo "[WARN] Could not pull $IMAGE – skipping norminette step."; exit 0; }
+          for dir in tests/fixtures/*/; do
+            project_name=$(basename "$dir")
+            c_files=$(find "$dir" -name "*.c" -o -name "*.h" | tr '\n' ' ')
+            if [ -n "$c_files" ]; then
+              echo "=== norminette: $project_name ==="
+              docker run --rm -v "$(realpath "$dir"):/code:ro" -w /code "$IMAGE" $c_files || true
+            fi
           done
