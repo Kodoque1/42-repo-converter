@@ -17,12 +17,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-          # Cache pip downloads so subsequent runs are faster.
-          # GitHub Actions caches the pip wheel cache between runs on the same
-          # branch; the cache key is derived from the OS and a hash of any
-          # requirements files found (falls back to a generic key when none
-          # exist, still saving the downloaded wheels for reuse).
-          cache: 'pip'
 
       - name: Install dependencies
         run: pip install pycparser norminette==3.3.51
