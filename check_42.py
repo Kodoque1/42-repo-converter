@@ -126,7 +126,7 @@ PROJECTS = {
             "perror", "strerror", "exit",
             # MinilibX
             "mlx_init", "mlx_new_window", "mlx_clear_window",
-            "mlx_destroy_window", "mlx_destroy_display",do pr github
+            "mlx_destroy_window", "mlx_destroy_display",
             "mlx_loop", "mlx_loop_end", "mlx_loop_hook",
             "mlx_key_hook", "mlx_mouse_hook", "mlx_expose_hook", "mlx_hook",
             "mlx_new_image", "mlx_put_image_to_window", "mlx_destroy_image",
