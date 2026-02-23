@@ -5,7 +5,6 @@ Verifies:
   - README.md presence (hard fail) and structure (warnings)
   - 42 header presence in .c and .h files
   - Forbidden function calls via AST (pycparser)
-  - Norminette style via Docker (opt-in with --norminette)
   - Required files/directories per project
   - Relink detection via mtime comparison
   - Auto-update against a remote version endpoint
@@ -22,19 +21,10 @@ import urllib.request
 # Version & auto-update
 # ---------------------------------------------------------------------------
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 UPDATE_URL = (
     "https://raw.githubusercontent.com/Kodoque1/42-repo-converter/main/VERSION"
 )
-
-# ---------------------------------------------------------------------------
-# Norminette Docker image (pinned for deterministic results)
-# ---------------------------------------------------------------------------
-# To run norminette locally:
-#   docker run --rm -v "$PWD":/code -w /code ghcr.io/42school/norminette:3.3.10
-# ---------------------------------------------------------------------------
-
-NORMINETTE_DOCKER_IMAGE = "ghcr.io/42school/norminette:3.3.10"
 
 
 def _parse_semver(version_str):
@@ -537,81 +527,6 @@ def check_readme(directory="."):
 
 
 # ---------------------------------------------------------------------------
-# Norminette via Docker (Feature 7)
-# ---------------------------------------------------------------------------
-
-
-def check_norminette(source_files, directory="."):
-    """Run norminette on *source_files* via the pinned Docker image.
-
-    Skips with a printed warning when Docker is unavailable or when the image
-    cannot be pulled, so the check is never flaky in offline environments.
-    Enable this check by passing ``--norminette`` on the command line.
-
-    Returns a list of error strings for every norminette violation found.
-    """
-    if not source_files:
-        return []
-
-    # Verify that Docker daemon is reachable.
-    try:
-        docker_info = subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            timeout=10,
-        )
-        if docker_info.returncode != 0:
-            print("[WARN] Docker daemon not available – skipping norminette.")
-            return []
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        print("[WARN] Docker not found – skipping norminette.")
-        return []
-
-    abs_dir = os.path.abspath(directory)
-    rel_files = []
-    for f in source_files:
-        try:
-            rel_files.append(os.path.relpath(os.path.abspath(f), abs_dir))
-        except ValueError:
-            rel_files.append(f)
-
-    cmd = [
-        "docker", "run", "--rm",
-        "-v", f"{abs_dir}:/code:ro",
-        "-w", "/code",
-        NORMINETTE_DOCKER_IMAGE,
-    ] + rel_files
-
-    try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120
-        )
-    except subprocess.TimeoutExpired:
-        print("[WARN] norminette timed out – skipping.")
-        return []
-    except Exception as exc:
-        print(f"[WARN] norminette failed to run ({exc}) – skipping.")
-        return []
-
-    # Docker exit code 125 means the image could not be pulled/started.
-    if result.returncode == 125 or (
-        "Unable to find image" in result.stderr
-        and result.returncode != 0
-    ):
-        print(
-            f"[WARN] Could not pull norminette image {NORMINETTE_DOCKER_IMAGE}"
-            " – skipping."
-        )
-        return []
-
-    errors = []
-    for line in result.stdout.splitlines():
-        if "Error!" in line:
-            errors.append(f"Norminette: {line.strip()}")
-    return errors
-
-
-# ---------------------------------------------------------------------------
 # Required-paths check (Feature 8)
 # ---------------------------------------------------------------------------
 
@@ -733,8 +648,6 @@ def main():
     if "--validate-projects" in sys.argv:
         cmd_validate_projects()
 
-    run_norminette = "--norminette" in sys.argv
-
     check_version()
 
     project_name = get_project_name()
@@ -769,10 +682,6 @@ def main():
     errors.extend(check_headers(source_files))
     errors.extend(check_forbidden_functions(c_files, project["allowed_functions"]))
     errors.extend(check_relink(project.get("make_target")))
-
-    # Feature 7 – Norminette (opt-in via --norminette)
-    if run_norminette:
-        errors.extend(check_norminette(source_files))
 
     # Print warnings (non-blocking)
     for warn in warnings:

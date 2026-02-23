@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for check_42.py – covers Features 6, 7, 8."""
+"""Unit tests for check_42.py – covers README enforcement, required paths, and utilities."""
 
 import os
 import sys
@@ -11,11 +11,9 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from check_42 import (
-    NORMINETTE_DOCKER_IMAGE,
     PROJECTS,
     check_readme,
     check_required_paths,
-    check_norminette,
     _parse_semver,
     resolve_project_name,
     _normalize_project_name,
@@ -169,40 +167,6 @@ class TestCheckReadme(unittest.TestCase):
             self.assertEqual(errors, [])
             section_warnings = [w for w in warnings if "section" in w.lower()]
             self.assertEqual(section_warnings, [], f"Sections should be detected case-insensitively: {warnings}")
-
-
-# ---------------------------------------------------------------------------
-# Feature 7 – Norminette Docker image configuration
-# ---------------------------------------------------------------------------
-
-class TestNorminetteConfig(unittest.TestCase):
-    """Tests for the norminette Docker image pin."""
-
-    def test_image_constant_is_pinned(self):
-        """NORMINETTE_DOCKER_IMAGE must be a non-latest pinned tag."""
-        self.assertIsInstance(NORMINETTE_DOCKER_IMAGE, str)
-        self.assertIn("norminette", NORMINETTE_DOCKER_IMAGE.lower())
-        self.assertIn(":", NORMINETTE_DOCKER_IMAGE, "Image must include a tag")
-        tag = NORMINETTE_DOCKER_IMAGE.split(":")[-1]
-        self.assertNotEqual(tag, "latest", "Image tag must not be 'latest'")
-
-    def test_norminette_skips_gracefully_without_docker(self):
-        """check_norminette should skip (not raise) when Docker is absent."""
-        import unittest.mock as mock
-        with mock.patch(
-            "subprocess.run",
-            side_effect=FileNotFoundError("docker not found"),
-        ):
-            with tempfile.TemporaryDirectory() as d:
-                dummy = os.path.join(d, "foo.c")
-                with open(dummy, "w"):
-                    pass
-                result = check_norminette([dummy], d)
-                self.assertEqual(result, [], "Should return empty list when Docker unavailable")
-
-    def test_norminette_skips_on_empty_file_list(self):
-        result = check_norminette([], ".")
-        self.assertEqual(result, [])
 
 
 # ---------------------------------------------------------------------------

@@ -17,9 +17,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+          # Cache pip downloads so subsequent runs are faster.
+          # GitHub Actions caches the pip wheel cache between runs on the same
+          # branch; the cache key is derived from the OS and a hash of any
+          # requirements files found (falls back to a generic key when none
+          # exist, still saving the downloaded wheels for reuse).
+          cache: 'pip'
 
-      - name: Install pycparser
-        run: pip install pycparser
+      - name: Install dependencies
+        run: pip install pycparser norminette==3.3.51
 
       - name: Run unit tests
         run: python3 -m unittest tests/test_check_42.py -v
@@ -41,20 +47,19 @@ jobs:
             )
           done
 
-      - name: Norminette via Docker (pinned image)
-        # Runs norminette on fixture source files using the pinned Docker image.
-        # This step is informational; norm violations are reported but the job
-        # does not fail here so CI remains green while the image is warm.
+      - name: Norminette (informational)
+        # Runs norminette==3.3.51 (installed via pip above) on fixture source
+        # files.  This step is informational only: norm violations are reported
+        # but the job does not fail so CI always stays green.
+        # Pip wheels are cached by the setup-python step above, so this runs
+        # quickly on repeat invocations without re-downloading packages.
         continue-on-error: true
         run: |
-          set -e
-          IMAGE="ghcr.io/42school/norminette:3.3.10"
-          docker pull "$IMAGE" || { echo "[WARN] Could not pull $IMAGE – skipping norminette step."; exit 0; }
           for dir in tests/fixtures/*/; do
             project_name=$(basename "$dir")
             c_files=$(find "$dir" -name "*.c" -o -name "*.h" | tr '\n' ' ')
             if [ -n "$c_files" ]; then
               echo "=== norminette: $project_name ==="
-              docker run --rm -v "$(realpath "$dir"):/code:ro" -w /code "$IMAGE" $c_files || true
+              norminette $c_files || true
             fi
           done
