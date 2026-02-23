@@ -21,13 +21,19 @@ python3 check_42.py --list-projects
 python3 check_42.py --validate-projects
 ```
 
-**What it checks:**
+**Feature checklist:**
 
-| Check | Details |
-|---|---|
-| 42 header | Every `.c` / `.h` file must contain `By: ` in the first 500 chars |
-| Forbidden functions | AST-based detection via `pycparser` (no false positives from comments/strings) |
-| Relink | Runs `make` twice; flags the project if the make target is rebuilt unnecessarily |
+| # | Feature | Status | Details |
+|---|---------|--------|---------|
+| 1 | Project detection | ✅ Implemented | Reads `git config project.name`; exits 1 if unset or unknown |
+| 2 | 42 header format | ✅ Implemented | Every `.c` / `.h` file must contain `By: ` in the first 500 chars |
+| 3 | Forbidden functions | ✅ Implemented | AST-based detection via `pycparser` (no false positives from comments/strings) |
+| 4 | Relink detection | ✅ Implemented | Runs `make` twice; flags the project if the make target is rebuilt unnecessarily |
+| 5 | Exit code conventions | ✅ Implemented | `0` = all checks passed; `1` = one or more checks failed |
+| 6 | README required | ❌ Not checked | — |
+| 7 | Norminette | ❌ Not checked | `norminette` is not invoked (not universally available) |
+| 8 | Required files present | ❌ Not checked | Makefile / include presence is not verified |
+| 9 | Compilation | ❌ Not checked | Only relink is tested; a full `cc` compilation is not run |
 
 Set your project name once:
 
