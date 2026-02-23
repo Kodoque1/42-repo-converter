@@ -51,8 +51,16 @@ def check_version():
 # ---------------------------------------------------------------------------
 # Project definitions
 # ---------------------------------------------------------------------------
+# Sources: 42 Intra subject PDFs (https://projects.intra.42.fr)
+# Each entry lists the C library functions that a student is allowed to call
+# in the corresponding project.  C++ projects (cpp00-09, ft_irc, webserv) and
+# system/web projects (born2beroot, netpractice, inception, ft_transcendence)
+# contain no .c files, so the forbidden-function AST check is skipped for them
+# automatically by check_forbidden_functions().
+# ---------------------------------------------------------------------------
 
 PROJECTS = {
+    # ── Rank 0 ──────────────────────────────────────────────────────────────
     "libft": {
         "allowed_functions": [
             "malloc", "free", "write",
@@ -64,6 +72,7 @@ PROJECTS = {
         ],
         "make_target": "libft.a",
     },
+    # ── Rank 1 ──────────────────────────────────────────────────────────────
     "ft_printf": {
         "allowed_functions": [
             "malloc", "free", "write",
@@ -75,20 +84,209 @@ PROJECTS = {
         "allowed_functions": ["malloc", "free", "read"],
         "make_target": None,
     },
+    "born2beroot": {
+        # System-administration/VM project – no C source files.
+        "allowed_functions": [],
+        "make_target": None,
+    },
+    # ── Rank 2 ──────────────────────────────────────────────────────────────
     "push_swap": {
         "allowed_functions": [
-            "malloc", "free", "write", "exit",
-            "read",
+            "malloc", "free", "read", "write", "exit",
         ],
         "make_target": "push_swap",
     },
+    "pipex": {
+        "allowed_functions": [
+            "open", "close", "read", "write",
+            "malloc", "free", "perror", "strerror",
+            "access", "dup", "dup2", "execve", "exit",
+            "fork", "pipe", "unlink", "wait", "waitpid",
+        ],
+        "make_target": "pipex",
+    },
     "so_long": {
         "allowed_functions": [
-            "malloc", "free", "write", "exit", "read", "open", "close",
+            "open", "close", "read", "write", "malloc", "free",
+            "perror", "strerror", "exit",
+            # MinilibX
+            "mlx_init", "mlx_new_window", "mlx_clear_window",
+            "mlx_destroy_window", "mlx_destroy_display",
+            "mlx_loop", "mlx_loop_end", "mlx_loop_hook",
+            "mlx_key_hook", "mlx_mouse_hook", "mlx_expose_hook", "mlx_hook",
+            "mlx_new_image", "mlx_put_image_to_window", "mlx_destroy_image",
+            "mlx_get_data_addr", "mlx_get_color_value", "mlx_pixel_put",
+            "mlx_string_put", "mlx_xpm_file_to_image", "mlx_png_file_to_image",
         ],
         "make_target": "so_long",
     },
+    "fdf": {
+        "allowed_functions": [
+            "open", "close", "read", "write", "malloc", "free",
+            "perror", "strerror", "exit",
+            # MinilibX
+            "mlx_init", "mlx_new_window", "mlx_clear_window",
+            "mlx_destroy_window", "mlx_destroy_display",do pr github
+            "mlx_loop", "mlx_loop_end", "mlx_loop_hook",
+            "mlx_key_hook", "mlx_mouse_hook", "mlx_expose_hook", "mlx_hook",
+            "mlx_new_image", "mlx_put_image_to_window", "mlx_destroy_image",
+            "mlx_get_data_addr", "mlx_get_color_value", "mlx_pixel_put",
+            # Math
+            "cos", "sin", "tan",
+        ],
+        "make_target": "fdf",
+    },
+    "fract-ol": {
+        "allowed_functions": [
+            "malloc", "free", "perror", "strerror", "exit", "open", "close",
+            # MinilibX
+            "mlx_init", "mlx_new_window", "mlx_clear_window",
+            "mlx_destroy_window", "mlx_destroy_display",
+            "mlx_loop", "mlx_loop_end", "mlx_loop_hook",
+            "mlx_key_hook", "mlx_mouse_hook", "mlx_expose_hook", "mlx_hook",
+            "mlx_new_image", "mlx_put_image_to_window", "mlx_destroy_image",
+            "mlx_get_data_addr", "mlx_get_color_value", "mlx_pixel_put",
+            # Math
+            "cos", "sin", "tan",
+        ],
+        "make_target": "fractol",
+    },
+    "minitalk": {
+        "allowed_functions": [
+            "write", "exit", "malloc", "free",
+            "signal", "kill", "getpid",
+            "pause", "sleep", "usleep",
+            "sigemptyset", "sigaddset", "sigaction",
+        ],
+        # Produces 'server' and 'client' binaries; no single make target.
+        "make_target": None,
+    },
+    # ── Rank 3 ──────────────────────────────────────────────────────────────
+    "minishell": {
+        "allowed_functions": [
+            "readline", "rl_clear_history", "rl_on_new_line",
+            "rl_replace_line", "rl_redisplay", "add_history",
+            "printf", "malloc", "free", "write",
+            "open", "read", "close",
+            "fork", "wait", "waitpid", "wait3", "wait4",
+            "signal", "sigaction", "sigemptyset", "sigaddset",
+            "kill", "exit",
+            "getcwd", "chdir", "stat", "lstat", "fstat", "unlink",
+            "execve", "dup", "dup2", "pipe",
+            "opendir", "readdir", "closedir",
+            "strerror", "perror",
+            "isatty", "ttyname", "ttyslot",
+            "ioctl", "getenv",
+            "tcsetattr", "tcgetattr",
+            "tgetent", "tgetflag", "tgetnum", "tgetstr", "tgoto", "tputs",
+        ],
+        "make_target": "minishell",
+    },
+    "philosophers": {
+        "allowed_functions": [
+            "malloc", "free", "write",
+            "usleep", "gettimeofday",
+            "pthread_create", "pthread_detach", "pthread_join",
+            "pthread_mutex_init", "pthread_mutex_destroy",
+            "pthread_mutex_lock", "pthread_mutex_unlock",
+        ],
+        "make_target": "philo",
+    },
+    # ── Rank 4 ──────────────────────────────────────────────────────────────
+    "netpractice": {
+        # Network subnetting exercise – web-app interface, no C source files.
+        "allowed_functions": [],
+        "make_target": None,
+    },
+    "cub3d": {
+        "allowed_functions": [
+            "open", "close", "read", "write", "malloc", "free",
+            "perror", "strerror", "exit",
+            "gettimeofday",
+            # Math
+            "cos", "sin", "tan", "atan2", "sqrt", "floor", "ceil",
+            # MinilibX
+            "mlx_init", "mlx_new_window", "mlx_clear_window",
+            "mlx_destroy_window", "mlx_destroy_display",
+            "mlx_loop", "mlx_loop_end", "mlx_loop_hook",
+            "mlx_key_hook", "mlx_mouse_hook", "mlx_expose_hook", "mlx_hook",
+            "mlx_new_image", "mlx_put_image_to_window", "mlx_destroy_image",
+            "mlx_get_data_addr", "mlx_get_color_value", "mlx_pixel_put",
+            "mlx_xpm_file_to_image", "mlx_png_file_to_image",
+        ],
+        "make_target": "cub3d",
+    },
+    "minirt": {
+        "allowed_functions": [
+            "open", "close", "read", "write", "malloc", "free",
+            "perror", "strerror", "exit",
+            # Math
+            "cos", "sin", "tan", "atan2", "acos", "asin", "sqrt",
+            "pow", "floor", "ceil", "fabs",
+            # MinilibX
+            "mlx_init", "mlx_new_window", "mlx_clear_window",
+            "mlx_destroy_window", "mlx_destroy_display",
+            "mlx_loop", "mlx_loop_end", "mlx_loop_hook",
+            "mlx_key_hook", "mlx_mouse_hook", "mlx_expose_hook", "mlx_hook",
+            "mlx_new_image", "mlx_put_image_to_window", "mlx_destroy_image",
+            "mlx_get_data_addr", "mlx_get_color_value", "mlx_pixel_put",
+            "mlx_xpm_file_to_image", "mlx_png_file_to_image",
+        ],
+        "make_target": "miniRT",
+    },
+    # C++ modules (Rank 4): no .c files → AST check skipped automatically.
+    "cpp00": {"allowed_functions": [], "make_target": None},
+    "cpp01": {"allowed_functions": [], "make_target": None},
+    "cpp02": {"allowed_functions": [], "make_target": None},
+    "cpp03": {"allowed_functions": [], "make_target": None},
+    "cpp04": {"allowed_functions": [], "make_target": None},
+    "cpp05": {"allowed_functions": [], "make_target": None},
+    "cpp06": {"allowed_functions": [], "make_target": None},
+    "cpp07": {"allowed_functions": [], "make_target": None},
+    "cpp08": {"allowed_functions": [], "make_target": None},
+    "cpp09": {"allowed_functions": [], "make_target": None},
+    # ── Rank 5 ──────────────────────────────────────────────────────────────
+    "ft_irc": {
+        # C++ IRC server – no .c files; AST check skipped automatically.
+        "allowed_functions": [],
+        "make_target": "ircserv",
+    },
+    "inception": {
+        # Docker system-administration project – no C source files.
+        "allowed_functions": [],
+        "make_target": None,
+    },
+    "webserv": {
+        # C++ HTTP server – no .c files; AST check skipped automatically.
+        "allowed_functions": [],
+        "make_target": "webserv",
+    },
+    # ── Rank 6 ──────────────────────────────────────────────────────────────
+    "ft_transcendence": {
+        # Full-stack web application – no C source files.
+        "allowed_functions": [],
+        "make_target": None,
+    },
 }
+
+# ---------------------------------------------------------------------------
+# Project name normalization
+# ---------------------------------------------------------------------------
+
+
+def _normalize_project_name(name):
+    """Normalize a project name for lookup (lower-case, hyphens→underscores)."""
+    return name.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+# Build a lookup table: normalized_name → canonical key in PROJECTS
+_NORMALIZED_PROJECTS = {_normalize_project_name(k): k for k in PROJECTS}
+
+
+def resolve_project_name(raw_name):
+    """Return the canonical PROJECTS key for *raw_name*, or None if unknown."""
+    return _NORMALIZED_PROJECTS.get(_normalize_project_name(raw_name))
+
 
 # ---------------------------------------------------------------------------
 # Header verification
@@ -245,6 +443,62 @@ def find_source_files(directory="."):
 
 
 # ---------------------------------------------------------------------------
+# Self-check utilities (--list-projects, --validate-projects)
+# ---------------------------------------------------------------------------
+
+
+def cmd_list_projects():
+    """Print all supported project names and exit."""
+    print("Supported 42 Common Core projects:")
+    for name in sorted(PROJECTS):
+        print(f"  {name}")
+    sys.exit(0)
+
+
+def cmd_validate_projects():
+    """Validate the PROJECTS dict and exit with 0 on success, 1 on failure."""
+    errors = []
+
+    # Check for empty keys
+    for key in PROJECTS:
+        if not key:
+            errors.append("PROJECTS contains an empty key.")
+
+    # Check for duplicate normalized names (catches fdf / FdF / fd-f etc.)
+    seen_normalized = {}
+    for key in PROJECTS:
+        norm = _normalize_project_name(key)
+        if norm in seen_normalized:
+            errors.append(
+                f"Duplicate normalized key: '{key}' clashes with "
+                f"'{seen_normalized[norm]}' (both normalize to '{norm}')."
+            )
+        seen_normalized[norm] = key
+
+    # Check that each entry has required fields
+    for key, cfg in PROJECTS.items():
+        if "allowed_functions" not in cfg:
+            errors.append(f"'{key}' is missing 'allowed_functions'.")
+        if "make_target" not in cfg:
+            errors.append(f"'{key}' is missing 'make_target'.")
+        af = cfg.get("allowed_functions", [])
+        if isinstance(af, list) and len(af) != len(set(af)):
+            dupes = [f for f in af if af.count(f) > 1]
+            errors.append(
+                f"'{key}' has duplicate allowed_functions: {sorted(set(dupes))}"
+            )
+
+    if errors:
+        print("[FAIL] PROJECTS validation failed:")
+        for err in errors:
+            print(f"  - {err}")
+        sys.exit(1)
+
+    print(f"[OK] PROJECTS validated: {len(PROJECTS)} projects, no issues found.")
+    sys.exit(0)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -263,6 +517,12 @@ def get_project_name():
 
 
 def main():
+    # Handle self-check flags before doing anything else.
+    if "--list-projects" in sys.argv:
+        cmd_list_projects()
+    if "--validate-projects" in sys.argv:
+        cmd_validate_projects()
+
     check_version()
 
     project_name = get_project_name()
@@ -270,11 +530,15 @@ def main():
         print("[ERROR] git config project.name is not set.")
         sys.exit(1)
 
-    if project_name not in PROJECTS:
-        print(f"[ERROR] Unknown project '{project_name}'. Known projects: {', '.join(PROJECTS)}")
+    canonical_name = resolve_project_name(project_name)
+    if canonical_name is None:
+        print(
+            f"[ERROR] Unknown project '{project_name}'. "
+            f"Run '{sys.argv[0]} --list-projects' to see supported projects."
+        )
         sys.exit(1)
 
-    project = PROJECTS[project_name]
+    project = PROJECTS[canonical_name]
     source_files = find_source_files(".")
     c_files = [f for f in source_files if f.endswith(".c")]
 
