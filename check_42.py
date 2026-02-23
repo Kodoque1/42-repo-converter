@@ -2,13 +2,17 @@
 """42 School compliance checker.
 
 Verifies:
+  - README.md presence (hard fail) and structure (warnings)
   - 42 header presence in .c and .h files
   - Forbidden function calls via AST (pycparser)
+  - Norminette style via Docker (opt-in with --norminette)
+  - Required files/directories per project
   - Relink detection via mtime comparison
   - Auto-update against a remote version endpoint
 """
 
 import os
+import re
 import sys
 import time
 import subprocess
@@ -18,10 +22,19 @@ import urllib.request
 # Version & auto-update
 # ---------------------------------------------------------------------------
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 UPDATE_URL = (
     "https://raw.githubusercontent.com/Kodoque1/42-repo-converter/main/VERSION"
 )
+
+# ---------------------------------------------------------------------------
+# Norminette Docker image (pinned for deterministic results)
+# ---------------------------------------------------------------------------
+# To run norminette locally:
+#   docker run --rm -v "$PWD":/code -w /code ghcr.io/42school/norminette:3.3.10
+# ---------------------------------------------------------------------------
+
+NORMINETTE_DOCKER_IMAGE = "ghcr.io/42school/norminette:3.3.10"
 
 
 def _parse_semver(version_str):
@@ -71,6 +84,7 @@ PROJECTS = {
             "calloc", "strdup", "atoi",
         ],
         "make_target": "libft.a",
+        "required_paths": ["Makefile", "libft.h"],
     },
     # ── Rank 1 ──────────────────────────────────────────────────────────────
     "ft_printf": {
@@ -79,15 +93,18 @@ PROJECTS = {
             "va_start", "va_arg", "va_end", "va_copy",
         ],
         "make_target": "libftprintf.a",
+        "required_paths": ["Makefile"],
     },
     "get_next_line": {
         "allowed_functions": ["malloc", "free", "read"],
         "make_target": None,
+        "required_paths": ["get_next_line.c", "get_next_line.h"],
     },
     "born2beroot": {
         # System-administration/VM project – no C source files.
         "allowed_functions": [],
         "make_target": None,
+        "required_paths": ["signature.txt"],
     },
     # ── Rank 2 ──────────────────────────────────────────────────────────────
     "push_swap": {
@@ -95,6 +112,7 @@ PROJECTS = {
             "malloc", "free", "read", "write", "exit",
         ],
         "make_target": "push_swap",
+        "required_paths": ["Makefile"],
     },
     "pipex": {
         "allowed_functions": [
@@ -104,6 +122,7 @@ PROJECTS = {
             "fork", "pipe", "unlink", "wait", "waitpid",
         ],
         "make_target": "pipex",
+        "required_paths": ["Makefile"],
     },
     "so_long": {
         "allowed_functions": [
@@ -119,6 +138,7 @@ PROJECTS = {
             "mlx_string_put", "mlx_xpm_file_to_image", "mlx_png_file_to_image",
         ],
         "make_target": "so_long",
+        "required_paths": ["Makefile"],
     },
     "fdf": {
         "allowed_functions": [
@@ -135,6 +155,7 @@ PROJECTS = {
             "cos", "sin", "tan",
         ],
         "make_target": "fdf",
+        "required_paths": ["Makefile"],
     },
     "fract-ol": {
         "allowed_functions": [
@@ -150,6 +171,7 @@ PROJECTS = {
             "cos", "sin", "tan",
         ],
         "make_target": "fractol",
+        "required_paths": ["Makefile"],
     },
     "minitalk": {
         "allowed_functions": [
@@ -160,6 +182,7 @@ PROJECTS = {
         ],
         # Produces 'server' and 'client' binaries; no single make target.
         "make_target": None,
+        "required_paths": ["Makefile"],
     },
     # ── Rank 3 ──────────────────────────────────────────────────────────────
     "minishell": {
@@ -181,6 +204,7 @@ PROJECTS = {
             "tgetent", "tgetflag", "tgetnum", "tgetstr", "tgoto", "tputs",
         ],
         "make_target": "minishell",
+        "required_paths": ["Makefile"],
     },
     "philosophers": {
         "allowed_functions": [
@@ -191,12 +215,14 @@ PROJECTS = {
             "pthread_mutex_lock", "pthread_mutex_unlock",
         ],
         "make_target": "philo",
+        "required_paths": ["Makefile"],
     },
     # ── Rank 4 ──────────────────────────────────────────────────────────────
     "netpractice": {
         # Network subnetting exercise – web-app interface, no C source files.
         "allowed_functions": [],
         "make_target": None,
+        "required_paths": [],
     },
     "cub3d": {
         "allowed_functions": [
@@ -215,6 +241,7 @@ PROJECTS = {
             "mlx_xpm_file_to_image", "mlx_png_file_to_image",
         ],
         "make_target": "cub3d",
+        "required_paths": ["Makefile"],
     },
     "minirt": {
         "allowed_functions": [
@@ -233,39 +260,44 @@ PROJECTS = {
             "mlx_xpm_file_to_image", "mlx_png_file_to_image",
         ],
         "make_target": "miniRT",
+        "required_paths": ["Makefile"],
     },
     # C++ modules (Rank 4): no .c files → AST check skipped automatically.
-    "cpp00": {"allowed_functions": [], "make_target": None},
-    "cpp01": {"allowed_functions": [], "make_target": None},
-    "cpp02": {"allowed_functions": [], "make_target": None},
-    "cpp03": {"allowed_functions": [], "make_target": None},
-    "cpp04": {"allowed_functions": [], "make_target": None},
-    "cpp05": {"allowed_functions": [], "make_target": None},
-    "cpp06": {"allowed_functions": [], "make_target": None},
-    "cpp07": {"allowed_functions": [], "make_target": None},
-    "cpp08": {"allowed_functions": [], "make_target": None},
-    "cpp09": {"allowed_functions": [], "make_target": None},
+    "cpp00": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp01": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp02": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp03": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp04": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp05": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp06": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp07": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp08": {"allowed_functions": [], "make_target": None, "required_paths": []},
+    "cpp09": {"allowed_functions": [], "make_target": None, "required_paths": []},
     # ── Rank 5 ──────────────────────────────────────────────────────────────
     "ft_irc": {
         # C++ IRC server – no .c files; AST check skipped automatically.
         "allowed_functions": [],
         "make_target": "ircserv",
+        "required_paths": ["Makefile"],
     },
     "inception": {
         # Docker system-administration project – no C source files.
         "allowed_functions": [],
         "make_target": None,
+        "required_paths": ["Makefile", "srcs/"],
     },
     "webserv": {
         # C++ HTTP server – no .c files; AST check skipped automatically.
         "allowed_functions": [],
         "make_target": "webserv",
+        "required_paths": ["Makefile"],
     },
     # ── Rank 6 ──────────────────────────────────────────────────────────────
     "ft_transcendence": {
         # Full-stack web application – no C source files.
         "allowed_functions": [],
         "make_target": None,
+        "required_paths": [],
     },
 }
 
@@ -426,6 +458,177 @@ def check_relink(make_target, make_dir="."):
 
 
 # ---------------------------------------------------------------------------
+# README enforcement (Feature 6)
+# ---------------------------------------------------------------------------
+
+_README_TEMPLATE_KEYWORDS = ["42", "curriculum"]
+_README_REQUIRED_SECTIONS = ["description", "instructions", "resources"]
+_README_AI_KEYWORDS = ["ai", "artificial intelligence", "chatgpt", "copilot"]
+
+
+def check_readme(directory="."):
+    """Check README.md presence and structure.
+
+    Returns:
+        (errors, warnings) — *errors* contains hard-fail items (missing file);
+        *warnings* contains non-blocking advisory items (structure issues).
+    """
+    errors = []
+    warnings = []
+    readme_path = os.path.join(directory, "README.md")
+
+    if not os.path.isfile(readme_path):
+        errors.append("README.md is missing from the repository root")
+        return errors, warnings
+
+    try:
+        with open(readme_path, "r", errors="replace") as fh:
+            content = fh.read()
+    except OSError as exc:
+        warnings.append(f"Cannot read README.md: {exc}")
+        return errors, warnings
+
+    lines = content.splitlines()
+
+    # Check that the first non-empty line is italicized and matches the
+    # 42 template sentence (lenient: accept *...* or _..._).
+    first_line = next((ln.strip() for ln in lines if ln.strip()), None)
+    if first_line is None:
+        warnings.append("README.md appears to be empty")
+    else:
+        is_italic = (
+            (first_line.startswith("*") and first_line.endswith("*"))
+            or (first_line.startswith("_") and first_line.endswith("_"))
+        )
+        has_template = all(
+            kw.lower() in first_line.lower()
+            for kw in _README_TEMPLATE_KEYWORDS
+        )
+        if not is_italic or not has_template:
+            warnings.append(
+                "README.md: first non-empty line should be italicized and "
+                "follow the 42 template, e.g. "
+                "*This project has been created as part of the 42 curriculum by …*"
+            )
+
+    # Check that required sections exist (case-insensitive heading detection).
+    content_lower = content.lower()
+    for section in _README_REQUIRED_SECTIONS:
+        pattern = r"^#{1,6}\s+" + re.escape(section) + r"\b"
+        if not re.search(pattern, content_lower, re.MULTILINE):
+            warnings.append(
+                f"README.md is missing a '{section.capitalize()}' section"
+            )
+
+    # If a Resources section exists, warn when there is no AI disclosure.
+    resources_pattern = r"^#{1,6}\s+resources\b.*?(?=^#{1,6}\s|\Z)"
+    resources_match = re.search(
+        resources_pattern, content_lower, re.MULTILINE | re.DOTALL
+    )
+    if resources_match:
+        resources_text = resources_match.group(0)
+        if not any(kw in resources_text for kw in _README_AI_KEYWORDS):
+            warnings.append(
+                "README.md Resources section does not mention AI usage/disclosure "
+                "(expected keywords: AI, artificial intelligence, ChatGPT, Copilot)"
+            )
+
+    return errors, warnings
+
+
+# ---------------------------------------------------------------------------
+# Norminette via Docker (Feature 7)
+# ---------------------------------------------------------------------------
+
+
+def check_norminette(source_files, directory="."):
+    """Run norminette on *source_files* via the pinned Docker image.
+
+    Skips with a printed warning when Docker is unavailable or when the image
+    cannot be pulled, so the check is never flaky in offline environments.
+    Enable this check by passing ``--norminette`` on the command line.
+
+    Returns a list of error strings for every norminette violation found.
+    """
+    if not source_files:
+        return []
+
+    # Verify that Docker daemon is reachable.
+    try:
+        docker_info = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            timeout=10,
+        )
+        if docker_info.returncode != 0:
+            print("[WARN] Docker daemon not available – skipping norminette.")
+            return []
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        print("[WARN] Docker not found – skipping norminette.")
+        return []
+
+    abs_dir = os.path.abspath(directory)
+    rel_files = []
+    for f in source_files:
+        try:
+            rel_files.append(os.path.relpath(os.path.abspath(f), abs_dir))
+        except ValueError:
+            rel_files.append(f)
+
+    cmd = [
+        "docker", "run", "--rm",
+        "-v", f"{abs_dir}:/code:ro",
+        "-w", "/code",
+        NORMINETTE_DOCKER_IMAGE,
+    ] + rel_files
+
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=120
+        )
+    except subprocess.TimeoutExpired:
+        print("[WARN] norminette timed out – skipping.")
+        return []
+    except Exception as exc:
+        print(f"[WARN] norminette failed to run ({exc}) – skipping.")
+        return []
+
+    # Docker exit code 125 means the image could not be pulled/started.
+    if result.returncode == 125 or (
+        "Unable to find image" in result.stderr
+        and result.returncode != 0
+    ):
+        print(
+            f"[WARN] Could not pull norminette image {NORMINETTE_DOCKER_IMAGE}"
+            " – skipping."
+        )
+        return []
+
+    errors = []
+    for line in result.stdout.splitlines():
+        if "Error!" in line:
+            errors.append(f"Norminette: {line.strip()}")
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Required-paths check (Feature 8)
+# ---------------------------------------------------------------------------
+
+
+def check_required_paths(directory, required_paths):
+    """Return errors for any path in *required_paths* absent under *directory*.
+
+    Each entry in *required_paths* is a relative path (file or directory).
+    """
+    errors = []
+    for path in required_paths:
+        if not os.path.exists(os.path.join(directory, path)):
+            errors.append(f"Required path missing: {path}")
+    return errors
+
+
+# ---------------------------------------------------------------------------
 # File discovery
 # ---------------------------------------------------------------------------
 
@@ -481,12 +684,19 @@ def cmd_validate_projects():
             errors.append(f"'{key}' is missing 'allowed_functions'.")
         if "make_target" not in cfg:
             errors.append(f"'{key}' is missing 'make_target'.")
+        if "required_paths" not in cfg:
+            errors.append(f"'{key}' is missing 'required_paths'.")
         af = cfg.get("allowed_functions", [])
         if isinstance(af, list) and len(af) != len(set(af)):
             dupes = [f for f in af if af.count(f) > 1]
             errors.append(
                 f"'{key}' has duplicate allowed_functions: {sorted(set(dupes))}"
             )
+        rp = cfg.get("required_paths", [])
+        if not isinstance(rp, list):
+            errors.append(f"'{key}' required_paths must be a list.")
+        elif not all(isinstance(p, str) for p in rp):
+            errors.append(f"'{key}' required_paths entries must all be strings.")
 
     if errors:
         print("[FAIL] PROJECTS validation failed:")
@@ -523,6 +733,8 @@ def main():
     if "--validate-projects" in sys.argv:
         cmd_validate_projects()
 
+    run_norminette = "--norminette" in sys.argv
+
     check_version()
 
     project_name = get_project_name()
@@ -543,9 +755,28 @@ def main():
     c_files = [f for f in source_files if f.endswith(".c")]
 
     errors = []
+    warnings = []
+
+    # Feature 6 – README enforcement
+    readme_errors, readme_warnings = check_readme(".")
+    errors.extend(readme_errors)
+    warnings.extend(readme_warnings)
+
+    # Feature 8 – Required paths
+    errors.extend(check_required_paths(".", project.get("required_paths", [])))
+
+    # Existing checks
     errors.extend(check_headers(source_files))
     errors.extend(check_forbidden_functions(c_files, project["allowed_functions"]))
     errors.extend(check_relink(project.get("make_target")))
+
+    # Feature 7 – Norminette (opt-in via --norminette)
+    if run_norminette:
+        errors.extend(check_norminette(source_files))
+
+    # Print warnings (non-blocking)
+    for warn in warnings:
+        print(f"[WARN] {warn}")
 
     if errors:
         print("[FAIL] Compliance check failed:")
