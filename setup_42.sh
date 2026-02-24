@@ -37,9 +37,10 @@ fi
     dest_dir="$(basename "$vogsphere_url" .git)"
 
     # 1. Clone the Vogsphere repository (this is the destination whose history
-    #    we want to preserve).
+    #    we want to preserve).  --recurse-submodules ensures any nested
+    #    submodules are also initialised and checked out.
     echo "[42clone] Cloning Vogsphere repo: $vogsphere_url"
-    git clone "$vogsphere_url" "$dest_dir" || return 1
+    git clone --recurse-submodules "$vogsphere_url" "$dest_dir" || return 1
 
     pushd "$dest_dir" > /dev/null || return 1
 
@@ -76,6 +77,9 @@ fi
 
     echo "[42clone] Done. Review the staged changes, then commit and push."
     popd > /dev/null
+
+    # 7. Install the pre-push hook so check_42.py runs automatically on push.
+    install_42_hook "$dest_dir"
 }
 
 # ---------------------------------------------------------------------------
