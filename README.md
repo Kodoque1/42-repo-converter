@@ -35,6 +35,7 @@ python3 check_42.py --validate-projects
 | 42 header | **FAIL** | Every `.c` / `.h` file must contain `By: ` in the first 500 chars |
 | Forbidden functions | **FAIL** | AST-based detection via `pycparser` (no false positives from comments/strings) |
 | Relink | **FAIL** | Runs `make` twice; flags the project if the make target is rebuilt unnecessarily |
+| Norminette style | **WARN** | Runs `norminette` on `.c` / `.h` files if installed; violations are advisory |
 
 Output prefixes: `[FAIL]` = hard error (exits 1), `[WARN]` = advisory (exits 0 if no errors).
 
@@ -50,13 +51,22 @@ Output prefixes: `[FAIL]` = hard error (exits 1), `[WARN]` = advisory (exits 0 i
   - If a `Resources` section is present it should disclose AI usage with at
     least one of the keywords: `AI`, `artificial intelligence`, `ChatGPT`, `Copilot`.
 
-#### Norminette (CI only)
+#### Norminette style check
 
-Norminette style checking is run **in CI only** and is informational — it
-never fails the pipeline.  It is **not** supported in the local script.
+`check_42.py` runs `norminette` on all `.c` and `.h` files in the project
+folder when it is installed.  Norm violations are reported as `[WARN]` lines
+and are **never** a hard failure — the script exits 0 even when violations are
+found (as long as no other hard errors occur).
 
-The CI pipeline installs `norminette==3.3.51` via pip and runs it against all
-fixture `.c` / `.h` files:
+```bash
+# norminette is optional; install it with:
+pip install norminette==3.3.51
+```
+
+If `norminette` is not found on `PATH`, the check is silently skipped.
+
+The CI pipeline also installs `norminette==3.3.51` and runs it as part of the
+`Install dependencies` step:
 
 ```yaml
 - name: Install dependencies

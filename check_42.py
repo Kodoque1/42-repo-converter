@@ -407,6 +407,34 @@ def check_forbidden_functions(c_files, allowed_functions):
 
 
 # ---------------------------------------------------------------------------
+# Norminette style check
+# ---------------------------------------------------------------------------
+
+
+def check_norminette(source_files):
+    """Run norminette on *source_files* and return advisory warnings.
+
+    Returns an empty list when norminette is not installed or no source files
+    are provided.  Norm violations are returned as warnings (never hard errors).
+    """
+    if not source_files:
+        return []
+    try:
+        result = subprocess.run(
+            ["norminette"] + source_files,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return []  # norminette not installed – skip silently
+    warnings = []
+    for line in result.stdout.splitlines():
+        if line.startswith("Error:") or line.startswith("Warning:"):
+            warnings.append(f"[NORMINETTE] {line.strip()}")
+    return warnings
+
+
+# ---------------------------------------------------------------------------
 # Relink detection
 # ---------------------------------------------------------------------------
 
@@ -681,6 +709,9 @@ def main():
     errors.extend(check_headers(source_files))
     errors.extend(check_forbidden_functions(c_files, project["allowed_functions"]))
     errors.extend(check_relink(project.get("make_target"), folder_path))
+
+    # Norminette style check (informational)
+    warnings.extend(check_norminette(source_files))
 
     # Print warnings (non-blocking)
     for warn in warnings:

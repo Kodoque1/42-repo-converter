@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from check_42 import (
     PROJECTS,
     check_headers,
+    check_norminette,
     check_readme,
     check_required_paths,
     find_source_files,
@@ -332,6 +333,51 @@ class TestCheckHeaders(unittest.TestCase):
     def test_empty_list_returns_no_errors(self):
         errors = check_headers([])
         self.assertEqual(errors, [])
+
+
+# ---------------------------------------------------------------------------
+# check_norminette – norminette style check
+# ---------------------------------------------------------------------------
+
+
+class TestCheckNorminette(unittest.TestCase):
+    """Tests for check_norminette()."""
+
+    def test_empty_list_returns_no_warnings(self):
+        warnings = check_norminette([])
+        self.assertEqual(warnings, [])
+
+    def test_returns_empty_when_norminette_missing(self):
+        """check_norminette silently returns [] when norminette is not installed."""
+        import unittest.mock as mock
+        with mock.patch("subprocess.run", side_effect=FileNotFoundError):
+            warnings = check_norminette(["some_file.c"])
+        self.assertEqual(warnings, [])
+
+    def test_returns_warnings_for_norm_errors(self):
+        """Lines starting with 'Error:' in norminette output become warnings."""
+        import unittest.mock as mock
+        fake_output = (
+            "some_file.c: Error!\n"
+            "Error: RETURN_PARENTHESES     (line:  12, col:   3): return value is enclosed in parentheses\n"
+        )
+        fake_result = mock.Mock()
+        fake_result.stdout = fake_output
+        with mock.patch("subprocess.run", return_value=fake_result):
+            warnings = check_norminette(["some_file.c"])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("[NORMINETTE]", warnings[0])
+        self.assertIn("RETURN_PARENTHESES", warnings[0])
+
+    def test_clean_files_produce_no_warnings(self):
+        """Files with only 'OK!' lines should produce no warnings."""
+        import unittest.mock as mock
+        fake_output = "some_file.c: OK!\n"
+        fake_result = mock.Mock()
+        fake_result.stdout = fake_output
+        with mock.patch("subprocess.run", return_value=fake_result):
+            warnings = check_norminette(["some_file.c"])
+        self.assertEqual(warnings, [])
 
 
 # ---------------------------------------------------------------------------
