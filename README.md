@@ -63,11 +63,6 @@ fixture `.c` / `.h` files:
   run: pip install pycparser norminette==3.3.51
 ```
 
-**Does GitHub cache the pip environment between runs?**  Yes — the workflow
-uses `actions/setup-python` with `cache: 'pip'`, which stores downloaded
-wheels in the runner's pip cache.  On subsequent runs on the same branch the
-packages are restored from cache, so the install step is very fast.
-
 #### Per-project required paths
 
 Each project definition in `PROJECTS` includes a `required_paths` list.
