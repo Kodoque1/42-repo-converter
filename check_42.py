@@ -23,40 +23,6 @@ import subprocess
 import urllib.request
 
 # ---------------------------------------------------------------------------
-# Version & auto-update
-# ---------------------------------------------------------------------------
-
-VERSION = "1.2.0"
-UPDATE_URL = (
-    "https://raw.githubusercontent.com/Kodoque1/42-repo-converter/main/VERSION"
-)
-
-
-def _parse_semver(version_str):
-    """Return a comparable tuple from a semantic version string."""
-    clean = version_str.strip().lstrip("v")
-    parts = clean.split(".")
-    try:
-        return tuple(int(p) for p in parts[:3])
-    except ValueError:
-        return (0, 0, 0)
-
-
-def check_version():
-    """Compare the local version with a remote endpoint and warn if outdated."""
-    try:
-        with urllib.request.urlopen(UPDATE_URL, timeout=5) as response:
-            remote_version = response.read().decode().strip()
-        if _parse_semver(remote_version) > _parse_semver(VERSION):
-            print(
-                f"[UPDATE] New version available: {remote_version}"
-                f" (current: {VERSION})"
-            )
-    except Exception:
-        pass  # silent failure – connectivity is optional
-
-
-# ---------------------------------------------------------------------------
 # Project definitions
 # ---------------------------------------------------------------------------
 # Sources: 42 Intra subject PDFs (https://projects.intra.42.fr)
