@@ -2,6 +2,7 @@
 """Unit tests for check_42.py – covers README enforcement, required paths, and utilities."""
 
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,8 +13,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from check_42 import (
     PROJECTS,
+    check_headers,
     check_readme,
     check_required_paths,
+    find_source_files,
     _parse_semver,
     resolve_project_name,
     _normalize_project_name,
@@ -253,6 +256,133 @@ class TestUtilities(unittest.TestCase):
         self.assertEqual(resolve_project_name("libft"), "libft")
         self.assertEqual(resolve_project_name("LIBFT"), "libft")
         self.assertIsNone(resolve_project_name("nonexistent_project_xyz"))
+
+
+# ---------------------------------------------------------------------------
+# find_source_files – directory-based file discovery
+# ---------------------------------------------------------------------------
+
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+class TestFindSourceFiles(unittest.TestCase):
+    """Tests for find_source_files()."""
+
+    def test_finds_c_and_h_files(self):
+        fixture = os.path.join(FIXTURES_DIR, "get_next_line")
+        files = find_source_files(fixture)
+        basenames = [os.path.basename(f) for f in files]
+        self.assertIn("get_next_line.c", basenames)
+        self.assertIn("get_next_line.h", basenames)
+
+    def test_does_not_return_readme(self):
+        fixture = os.path.join(FIXTURES_DIR, "get_next_line")
+        files = find_source_files(fixture)
+        basenames = [os.path.basename(f) for f in files]
+        self.assertNotIn("README.md", basenames)
+
+    def test_empty_directory_returns_empty(self):
+        with tempfile.TemporaryDirectory() as d:
+            files = find_source_files(d)
+            self.assertEqual(files, [])
+
+    def test_skips_hidden_directories(self):
+        with tempfile.TemporaryDirectory() as d:
+            hidden = os.path.join(d, ".git")
+            os.makedirs(hidden)
+            with open(os.path.join(hidden, "hidden.c"), "w"):
+                pass
+            files = find_source_files(d)
+            self.assertEqual(files, [], "Files inside .git should be skipped")
+
+
+# ---------------------------------------------------------------------------
+# check_headers – 42 header detection
+# ---------------------------------------------------------------------------
+
+
+class TestCheckHeaders(unittest.TestCase):
+    """Tests for check_headers()."""
+
+    def test_fixture_files_have_headers(self):
+        fixture = os.path.join(FIXTURES_DIR, "get_next_line")
+        files = find_source_files(fixture)
+        errors = check_headers(files)
+        self.assertEqual(errors, [], f"Fixture files should all have 42 headers: {errors}")
+
+    def test_missing_header_produces_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "nohdr.c")
+            with open(path, "w") as fh:
+                fh.write("int main(void) { return 0; }\n")
+            errors = check_headers([path])
+            self.assertTrue(
+                any("nohdr.c" in e for e in errors),
+                f"Expected error for missing 42 header, got: {errors}",
+            )
+
+    def test_present_header_no_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "valid.c")
+            with open(path, "w") as fh:
+                fh.write("/* By: student <student@student.42.fr> */\nint f(void){return 0;}\n")
+            errors = check_headers([path])
+            self.assertEqual(errors, [], f"Expected no errors for file with 42 header: {errors}")
+
+    def test_empty_list_returns_no_errors(self):
+        errors = check_headers([])
+        self.assertEqual(errors, [])
+
+
+# ---------------------------------------------------------------------------
+# main() CLI – new <folder_path> <project_name> interface
+# ---------------------------------------------------------------------------
+
+
+class TestMainCLI(unittest.TestCase):
+    """Integration tests for the new main() CLI interface."""
+
+    def _run(self, args):
+        """Run check_42.py with the given argument list; return (returncode, stdout)."""
+        script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "check_42.py")
+        result = subprocess.run(
+            [sys.executable, script] + args,
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode, result.stdout + result.stderr
+
+    def test_list_projects_exits_zero(self):
+        rc, output = self._run(["--list-projects"])
+        self.assertEqual(rc, 0)
+        self.assertIn("libft", output)
+
+    def test_validate_projects_exits_zero(self):
+        rc, output = self._run(["--validate-projects"])
+        self.assertEqual(rc, 0)
+        self.assertIn("[OK]", output)
+
+    def test_missing_args_exits_nonzero(self):
+        rc, output = self._run([])
+        self.assertNotEqual(rc, 0, "Should exit non-zero when no args given")
+        self.assertIn("Usage:", output)
+
+    def test_invalid_folder_exits_nonzero(self):
+        rc, output = self._run(["/nonexistent/path/xyz", "libft"])
+        self.assertNotEqual(rc, 0)
+        self.assertIn("not found", output.lower())
+
+    def test_unknown_project_exits_nonzero(self):
+        with tempfile.TemporaryDirectory() as d:
+            rc, output = self._run([d, "totally_unknown_project_xyz"])
+            self.assertNotEqual(rc, 0)
+            self.assertIn("Unknown project", output)
+
+    def test_fixture_get_next_line_passes(self):
+        """The bundled get_next_line fixture must pass all checks (no make target)."""
+        fixture = os.path.join(FIXTURES_DIR, "get_next_line")
+        rc, output = self._run([fixture, "get_next_line"])
+        self.assertEqual(rc, 0, f"Fixture should pass: {output}")
 
 
 if __name__ == "__main__":
