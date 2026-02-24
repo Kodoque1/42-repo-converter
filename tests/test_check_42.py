@@ -15,7 +15,6 @@ from check_42 import (
     PROJECTS,
     check_readme,
     check_required_paths,
-    _parse_semver,
     resolve_project_name,
     _normalize_project_name,
     main,
@@ -242,11 +241,6 @@ class TestCheckRequiredPaths(unittest.TestCase):
 
 class TestUtilities(unittest.TestCase):
 
-    def test_parse_semver(self):
-        self.assertEqual(_parse_semver("1.2.3"), (1, 2, 3))
-        self.assertEqual(_parse_semver("v2.0.0"), (2, 0, 0))
-        self.assertEqual(_parse_semver("bad"), (0, 0, 0))
-
     def test_normalize_project_name(self):
         self.assertEqual(_normalize_project_name("Fract-Ol"), "fract_ol")
         self.assertEqual(_normalize_project_name("FT_PRINTF"), "ft_printf")
@@ -265,8 +259,7 @@ class TestMain(unittest.TestCase):
     """Tests for the main() CLI entry point.
 
     main() is patched to prevent sys.exit from raising SystemExit and to
-    capture printed output.  check_version() is silenced so network calls
-    do not affect test results.
+    capture printed output.
     """
 
     def _run_main(self, argv):
@@ -280,7 +273,6 @@ class TestMain(unittest.TestCase):
 
         with patch("sys.argv", argv), \
              patch("builtins.print", side_effect=lambda *a, **k: printed.append(" ".join(str(x) for x in a))), \
-             patch("check_42.check_version"), \
              self.assertRaises(SystemExit):
             with patch("sys.exit", side_effect=fake_exit):
                 main()
