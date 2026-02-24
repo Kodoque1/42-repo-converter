@@ -6,7 +6,7 @@
 #   bash setup_42.sh            # installs the pre-push hook in the current repo
 #
 # Functions exported when sourced:
-#   42clone  <vogsphere_url> <github_url> [branch]
+#   42clone  <vogsphere_url> <github_url> [branch] [project_name]
 #   install_42_hook  [repo_dir]
 
 # Resolve the directory that contains this script regardless of how it is
@@ -24,13 +24,14 @@ fi
 
 42clone() {
     if [[ $# -lt 2 ]]; then
-        echo "Usage: 42clone <vogsphere_url> <github_url> [branch]" >&2
+        echo "Usage: 42clone <vogsphere_url> <github_url> [branch] [project_name]" >&2
         return 1
     fi
 
     local vogsphere_url="$1"
     local github_url="$2"
     local branch="${3:-main}"
+    local project_name="${4:-}"
     local dest_dir
 
     dest_dir="$(basename "$vogsphere_url" .git)"
@@ -66,6 +67,12 @@ fi
 
     # 5. Remove the temporary remote – it is no longer needed.
     git remote remove _tmp_github
+
+    # 6. Set the 42 project name so that check_42.py knows which project this is.
+    if [[ -n "$project_name" ]]; then
+        git config project.name "$project_name"
+        echo "[42clone] Set git config project.name = $project_name"
+    fi
 
     echo "[42clone] Done. Review the staged changes, then commit and push."
     popd > /dev/null
@@ -128,6 +135,22 @@ _setup_42_main() {
     else
         echo "[setup] Not inside a Git repository – skipping hook installation."
         echo "        Run 'install_42_hook <repo_dir>' manually after cloning."
+    fi
+
+    # Persist 42clone into ~/.zshrc so it is available in every new shell.
+    local zshrc="$HOME/.zshrc"
+    local marker="# added by setup_42.sh"
+    local source_line="source \"$_SETUP_42_DIR/setup_42.sh\""
+    if grep -qF "$marker" "$zshrc" 2>/dev/null; then
+        echo "[setup] 42clone already present in $zshrc"
+    else
+        if [[ ! -f "$zshrc" ]]; then
+            touch "$zshrc"
+            echo "[setup] Created $zshrc"
+        fi
+        printf '\n# 42 School toolchain %s\n%s\n' "$marker" "$source_line" >> "$zshrc"
+        echo "[setup] Added 42clone to $zshrc"
+        echo "        Restart your terminal or run: source \"$zshrc\""
     fi
 
     echo ""
