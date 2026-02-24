@@ -28,7 +28,7 @@ python3 check_42.py --validate-projects
 
 | Check | Outcome | Details |
 |---|---|---|
-| README.md present | **FAIL** | `README.md` must exist at repository root |
+| README.md present | **FAIL** | `README.md` must exist in the project folder |
 | README.md structure | **WARN** | First non-empty line should be italicized 42 template; `Description`, `Instructions`, `Resources` sections expected |
 | README.md AI disclosure | **WARN** | `Resources` section should mention AI usage (keywords: AI, artificial intelligence, ChatGPT, Copilot) |
 | Required files | **FAIL** | Per-project required paths must exist (e.g. `Makefile`, `libft.h`) |
@@ -40,7 +40,7 @@ Output prefixes: `[FAIL]` = hard error (exits 1), `[WARN]` = advisory (exits 0 i
 
 #### README.md rules
 
-- **Mandatory (FAIL)**: `README.md` must exist at the repository root.
+- **Mandatory (FAIL)**: `README.md` must exist in the project folder.
 - **Advisory (WARN)** — the following are checked when `README.md` exists but do *not* cause a hard failure:
   - The first non-empty line should be italicized (`*…*` or `_…_`) and should
     match the 42 template sentence:
@@ -82,7 +82,7 @@ To add or modify required paths for a project, edit the corresponding entry in
 },
 ```
 
-Any path that is absent from the repository root causes a **FAIL**.
+Any path that is absent from the project folder causes a **FAIL**.
 
 ---
 
