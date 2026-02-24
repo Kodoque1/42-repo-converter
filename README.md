@@ -90,7 +90,7 @@ Any path that is absent from the repository root causes a **FAIL**.
 ### `setup_42.sh` — toolchain setup
 
 ```bash
-# Install the pre-push hook in the current repo
+# Install the pre-push hook in the current repo (also adds 42clone to ~/.zshrc)
 bash setup_42.sh
 
 # Load 42clone into your shell
@@ -98,6 +98,9 @@ source setup_42.sh
 
 # Clone a Vogsphere repo and import files from GitHub
 42clone git@vogsphere.42.fr:…/myproject.git git@github.com:user/myproject.git
+
+# Clone and set the 42 project name (so check_42.py works immediately)
+42clone git@vogsphere.42.fr:…/libft.git git@github.com:user/libft.git main libft
 ```
 
 ---
