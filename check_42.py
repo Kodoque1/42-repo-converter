@@ -628,19 +628,6 @@ def cmd_validate_projects():
 # ---------------------------------------------------------------------------
 
 
-def get_project_name():
-    """Read ``project.name`` from the local git config."""
-    try:
-        result = subprocess.run(
-            ["git", "config", "project.name"],
-            capture_output=True,
-            text=True,
-        )
-        return result.stdout.strip() or None
-    except Exception:
-        return None
-
-
 def main():
     # Handle self-check flags before doing anything else.
     if "--list-projects" in sys.argv:
@@ -650,9 +637,17 @@ def main():
 
     check_version()
 
-    project_name = get_project_name()
-    if not project_name:
-        print("[ERROR] git config project.name is not set.")
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <folder> <project_name>")
+        print(f"       {sys.argv[0]} --list-projects")
+        print(f"       {sys.argv[0]} --validate-projects")
+        sys.exit(1)
+
+    folder = sys.argv[1]
+    project_name = sys.argv[2]
+
+    if not os.path.isdir(folder):
+        print(f"[ERROR] Folder not found: {folder}")
         sys.exit(1)
 
     canonical_name = resolve_project_name(project_name)
@@ -664,24 +659,24 @@ def main():
         sys.exit(1)
 
     project = PROJECTS[canonical_name]
-    source_files = find_source_files(".")
+    source_files = find_source_files(folder)
     c_files = [f for f in source_files if f.endswith(".c")]
 
     errors = []
     warnings = []
 
     # Feature 6 – README enforcement
-    readme_errors, readme_warnings = check_readme(".")
+    readme_errors, readme_warnings = check_readme(folder)
     errors.extend(readme_errors)
     warnings.extend(readme_warnings)
 
     # Feature 8 – Required paths
-    errors.extend(check_required_paths(".", project.get("required_paths", [])))
+    errors.extend(check_required_paths(folder, project.get("required_paths", [])))
 
     # Existing checks
     errors.extend(check_headers(source_files))
     errors.extend(check_forbidden_functions(c_files, project["allowed_functions"]))
-    errors.extend(check_relink(project.get("make_target")))
+    errors.extend(check_relink(project.get("make_target"), folder))
 
     # Print warnings (non-blocking)
     for warn in warnings:

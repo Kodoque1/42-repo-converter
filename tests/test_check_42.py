@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 # Allow importing check_42 from the repository root regardless of where the
 # test runner is invoked from.
@@ -17,6 +18,7 @@ from check_42 import (
     _parse_semver,
     resolve_project_name,
     _normalize_project_name,
+    main,
 )
 
 
@@ -253,6 +255,115 @@ class TestUtilities(unittest.TestCase):
         self.assertEqual(resolve_project_name("libft"), "libft")
         self.assertEqual(resolve_project_name("LIBFT"), "libft")
         self.assertIsNone(resolve_project_name("nonexistent_project_xyz"))
+
+
+# ---------------------------------------------------------------------------
+# main() – CLI entry point
+# ---------------------------------------------------------------------------
+
+class TestMain(unittest.TestCase):
+    """Tests for the main() CLI entry point.
+
+    main() is patched to prevent sys.exit from raising SystemExit and to
+    capture printed output.  check_version() is silenced so network calls
+    do not affect test results.
+    """
+
+    def _run_main(self, argv):
+        """Run main() with *argv* and return (exit_code, stdout_lines)."""
+        printed = []
+        exit_code = [0]
+
+        def fake_exit(code=0):
+            exit_code[0] = code
+            raise SystemExit(code)
+
+        with patch("sys.argv", argv), \
+             patch("builtins.print", side_effect=lambda *a, **k: printed.append(" ".join(str(x) for x in a))), \
+             patch("check_42.check_version"), \
+             self.assertRaises(SystemExit):
+            with patch("sys.exit", side_effect=fake_exit):
+                main()
+
+        return exit_code[0], printed
+
+    @staticmethod
+    def _write_valid_readme(directory):
+        """Write a minimal passing README.md into *directory*."""
+        with open(os.path.join(directory, "README.md"), "w") as fh:
+            fh.write(
+                "*This project has been created as part of the 42 curriculum by student*\n\n"
+                "## Description\n\nTest.\n\n"
+                "## Instructions\n\nTest.\n\n"
+                "## Resources\n\nNo AI used.\n"
+            )
+
+    def test_no_args_prints_usage_and_exits_1(self):
+        code, output = self._run_main(["check_42.py"])
+        self.assertEqual(code, 1)
+        self.assertTrue(
+            any("Usage" in line for line in output),
+            f"Expected Usage message, got: {output}",
+        )
+
+    def test_one_arg_prints_usage_and_exits_1(self):
+        code, output = self._run_main(["check_42.py", "/some/folder"])
+        self.assertEqual(code, 1)
+        self.assertTrue(
+            any("Usage" in line for line in output),
+            f"Expected Usage message, got: {output}",
+        )
+
+    def test_nonexistent_folder_exits_1(self):
+        code, output = self._run_main(["check_42.py", "/nonexistent_folder_xyz", "libft"])
+        self.assertEqual(code, 1)
+        self.assertTrue(
+            any("Folder not found" in line for line in output),
+            f"Expected 'Folder not found' error, got: {output}",
+        )
+
+    def test_unknown_project_exits_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            code, output = self._run_main(["check_42.py", d, "not_a_real_project"])
+        self.assertEqual(code, 1)
+        self.assertTrue(
+            any("Unknown project" in line for line in output),
+            f"Expected 'Unknown project' error, got: {output}",
+        )
+
+    def test_valid_folder_and_project_runs_checks(self):
+        """With a valid folder and known project name the checker should run
+        (it may FAIL due to missing files, but it must not error on the args
+        themselves).
+        """
+        with tempfile.TemporaryDirectory() as d:
+            # Provide a minimal README.md so the README check passes
+            self._write_valid_readme(d)
+            code, output = self._run_main(["check_42.py", d, "netpractice"])
+        # netpractice has no required_paths, no c files, no make target –
+        # the checker should reach its final verdict (exit 0 or 1 from checks,
+        # not from bad CLI args).
+        self.assertNotIn(
+            "Folder not found",
+            " ".join(output),
+            "Should not report folder-not-found for a real directory",
+        )
+        self.assertNotIn(
+            "Unknown project",
+            " ".join(output),
+            "Should not report unknown project for 'netpractice'",
+        )
+
+    def test_project_name_case_insensitive(self):
+        """main() should accept project names case-insensitively."""
+        with tempfile.TemporaryDirectory() as d:
+            self._write_valid_readme(d)
+            code, output = self._run_main(["check_42.py", d, "NETPRACTICE"])
+        self.assertNotIn(
+            "Unknown project",
+            " ".join(output),
+            "Project name should be resolved case-insensitively",
+        )
 
 
 if __name__ == "__main__":

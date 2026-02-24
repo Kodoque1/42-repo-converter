@@ -1,8 +1,8 @@
 # 42-repo-converter
 
-Easily transfer a 42 School project from a personal GitHub repo to a Vogsphere
-repo — while also providing compliance-checking tools that cover the **full
-42 Common Core curriculum**.
+Compliance-checking tool for the **full 42 Common Core curriculum**.
+Point it at any local project folder to run all checks — no git configuration
+or remote push required.
 
 ---
 
@@ -11,8 +11,11 @@ repo — while also providing compliance-checking tools that cover the **full
 ### `check_42.py` — compliance checker
 
 ```bash
-# Check the current project (reads git config project.name)
-python3 check_42.py
+# Check a project folder
+python3 check_42.py <folder> <project_name>
+
+# Example
+python3 check_42.py ~/projects/libft libft
 
 # List every supported project
 python3 check_42.py --list-projects
@@ -34,12 +37,6 @@ python3 check_42.py --validate-projects
 | Relink | **FAIL** | Runs `make` twice; flags the project if the make target is rebuilt unnecessarily |
 
 Output prefixes: `[FAIL]` = hard error (exits 1), `[WARN]` = advisory (exits 0 if no errors).
-
-Set your project name once:
-
-```bash
-git config project.name libft   # or ft_printf, minishell, …
-```
 
 #### README.md rules
 
@@ -85,23 +82,7 @@ To add or modify required paths for a project, edit the corresponding entry in
 },
 ```
 
-Any path that is absent from the repository root causes a **FAIL**.
-
-### `setup_42.sh` — toolchain setup
-
-```bash
-# Install the pre-push hook in the current repo (also adds 42clone to ~/.zshrc)
-bash setup_42.sh
-
-# Load 42clone into your shell
-source setup_42.sh
-
-# Clone a Vogsphere repo and import files from GitHub
-42clone git@vogsphere.42.fr:…/myproject.git git@github.com:user/myproject.git
-
-# Clone and set the 42 project name (so check_42.py works immediately)
-42clone git@vogsphere.42.fr:…/libft.git git@github.com:user/libft.git main libft
-```
+Any path that is absent from the folder causes a **FAIL**.
 
 ---
 
