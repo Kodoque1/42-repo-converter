@@ -473,7 +473,7 @@ def check_readme(directory="."):
     readme_path = os.path.join(directory, "README.md")
 
     if not os.path.isfile(readme_path):
-        errors.append("README.md is missing from the repository root")
+        errors.append("README.md is missing from the project folder")
         return errors, warnings
 
     try:

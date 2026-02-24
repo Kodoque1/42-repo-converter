@@ -33,20 +33,13 @@ jobs:
           for dir in tests/fixtures/*/; do
             project_name=$(basename "$dir")
             echo "=== Testing fixture: $project_name ==="
-            (
-              cd "$dir"
-              git init
-              git config project.name "$project_name"
-              python3 "$GITHUB_WORKSPACE/check_42.py"
-            )
+            python3 check_42.py "$dir" "$project_name"
           done
 
       - name: Norminette (informational)
         # Runs norminette==3.3.51 (installed via pip above) on fixture source
         # files.  This step is informational only: norm violations are reported
         # but the job does not fail so CI always stays green.
-        # Pip wheels are cached by the setup-python step above, so this runs
-        # quickly on repeat invocations without re-downloading packages.
         continue-on-error: true
         run: |
           for dir in tests/fixtures/*/; do
