@@ -433,11 +433,11 @@ def check_norminette(source_files):
         )
     except FileNotFoundError:
         return []  # norminette not installed – skip silently
-    warnings = []
-    for line in result.stdout.splitlines():
-        if line.startswith("Error:") or line.startswith("Warning:"):
-            warnings.append(f"[NORMINETTE] {line.strip()}")
-    return warnings
+
+    # Only return a single warning if norminette found issues
+    if result.returncode != 0:
+        return ["norminette check failed"]
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -454,40 +454,51 @@ def check_relink(make_target, make_dir="."):
       3. Wait **1.1 s** so a genuine rebuild would produce a new timestamp.
       4. Run make again.
       5. If ``mtime`` changed, the project relinks → error.
+      6. Clean up with ``make fclean``.
     """
     if not make_target:
         return []
 
     target_path = os.path.join(make_dir, make_target)
-
-    # Initial build if the target is absent.
-    if not os.path.exists(target_path):
-        logger.info(f"Target '{make_target}' not found – running initial make…")
-        subprocess.run(["make", "-C", make_dir], capture_output=True)
-        if not os.path.exists(target_path):
-            return [f"make did not produce '{make_target}'"]
-
-    mtime_before = os.path.getmtime(target_path)
-    time.sleep(RELINK_SLEEP_DURATION)
+    errors = []
 
     try:
-        result = subprocess.run(
-            ["make", "-C", make_dir], capture_output=True, text=True, timeout=60
-        )
-    except subprocess.TimeoutExpired:
-        return ["make command timed out (>60 seconds)"]
+        # Initial build if the target is absent.
+        if not os.path.exists(target_path):
+            logger.info(f"Target '{make_target}' not found – running initial make…")
+            subprocess.run(["make", "-C", make_dir], capture_output=True)
+            if not os.path.exists(target_path):
+                errors.append(f"make did not produce '{make_target}'")
+                return errors
 
-    if result.returncode != 0:
-        return [f"make failed:\n{result.stderr.strip()}"]
+        mtime_before = os.path.getmtime(target_path)
+        time.sleep(RELINK_SLEEP_DURATION)
 
-    if not os.path.exists(target_path):
-        return [f"'{make_target}' disappeared after rebuild"]
+        try:
+            result = subprocess.run(
+                ["make", "-C", make_dir], capture_output=True, text=True, timeout=60
+            )
+        except subprocess.TimeoutExpired:
+            errors.append("make command timed out (>60 seconds)")
+            return errors
 
-    mtime_after = os.path.getmtime(target_path)
-    if mtime_after != mtime_before:
-        return [f"Relink detected: '{make_target}' was rebuilt unnecessarily"]
+        if result.returncode != 0:
+            errors.append(f"make failed:\n{result.stderr.strip()}")
+            return errors
 
-    return []
+        if not os.path.exists(target_path):
+            errors.append(f"'{make_target}' disappeared after rebuild")
+            return errors
+
+        mtime_after = os.path.getmtime(target_path)
+        if mtime_after != mtime_before:
+            errors.append(f"Relink detected: '{make_target}' was rebuilt unnecessarily")
+
+        return errors
+
+    finally:
+        # Always clean up after make checks
+        subprocess.run(["make", "-C", make_dir, "fclean"], capture_output=True)
 
 
 # ---------------------------------------------------------------------------
