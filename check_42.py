@@ -19,8 +19,48 @@ import os
 import re
 import sys
 import time
+import logging
 import subprocess
 import urllib.request
+
+# ANSI color codes for terminal output
+class Colors:
+    """ANSI color codes for terminal output."""
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+
+
+class ColoredFormatter(logging.Formatter):
+    """Custom logging formatter with color support."""
+
+    COLORS = {
+        logging.INFO: Colors.GREEN,
+        logging.WARNING: Colors.YELLOW,
+        logging.ERROR: Colors.RED,
+        logging.DEBUG: Colors.RESET,
+    }
+
+    def format(self, record):
+        color = self.COLORS.get(record.levelno, Colors.RESET)
+        record.levelname = f"{color}{record.levelname}{Colors.RESET}"
+        return super().format(record)
+
+
+# Configure logging with colors
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = ColoredFormatter("%(levelname)s: %(message)s")
+handler.setFormatter(formatter)
+logger.handlers = [handler]
+
+# Magic number constants
+HEADER_CHECK_SIZE = 500  # Bytes to read when checking for 42 header
+RELINK_SLEEP_DURATION = 1.1  # Seconds to wait before rebuild mtime check
+GCC_PREPROCESS_TIMEOUT = 30  # Seconds timeout for gcc preprocessing
 
 # ---------------------------------------------------------------------------
 # Project definitions
@@ -292,7 +332,7 @@ def check_headers(files):
     for filepath in files:
         try:
             with open(filepath, "r", errors="replace") as fh:
-                content = fh.read(500)
+                content = fh.read(HEADER_CHECK_SIZE)
             if "By: " not in content:
                 errors.append(f"Missing 42 header in: {filepath}")
         except OSError as exc:
@@ -327,12 +367,12 @@ def _preprocess(filepath):
             ["gcc", "-E", "-std=c99", filepath],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=GCC_PREPROCESS_TIMEOUT,
         )
         if result.returncode == 0:
             return result.stdout
     except Exception:
-        pass
+        logger.debug(f"Preprocessing failed for {filepath}, falling back to raw source")
     with open(filepath, "r", errors="replace") as fh:
         return fh.read()
 
@@ -347,7 +387,7 @@ def check_forbidden_functions(c_files, allowed_functions):
     try:
         from pycparser import c_parser, c_ast  # type: ignore
     except ImportError:
-        print("[WARNING] pycparser not installed – skipping AST analysis.")
+        logger.warning("pycparser not installed – skipping AST analysis.")
         return []
 
     FuncCallVisitor = _build_visitor(c_ast)
@@ -359,7 +399,7 @@ def check_forbidden_functions(c_files, allowed_functions):
         try:
             ast = parser.parse(source, filename=filepath)
         except Exception as exc:
-            print(f"[WARNING] Could not parse {filepath}: {exc}")
+            logger.debug(f"Could not parse {filepath}: {exc}")
             continue
 
         visitor = FuncCallVisitor()
@@ -422,17 +462,21 @@ def check_relink(make_target, make_dir="."):
 
     # Initial build if the target is absent.
     if not os.path.exists(target_path):
-        print(f"[INFO] Target '{make_target}' not found – running initial make…")
+        logger.info(f"Target '{make_target}' not found – running initial make…")
         subprocess.run(["make", "-C", make_dir], capture_output=True)
         if not os.path.exists(target_path):
             return [f"make did not produce '{make_target}'"]
 
     mtime_before = os.path.getmtime(target_path)
-    time.sleep(1.1)
+    time.sleep(RELINK_SLEEP_DURATION)
 
-    result = subprocess.run(
-        ["make", "-C", make_dir], capture_output=True, text=True
-    )
+    try:
+        result = subprocess.run(
+            ["make", "-C", make_dir], capture_output=True, text=True, timeout=60
+        )
+    except subprocess.TimeoutExpired:
+        return ["make command timed out (>60 seconds)"]
+
     if result.returncode != 0:
         return [f"make failed:\n{result.stderr.strip()}"]
 
@@ -566,9 +610,9 @@ def find_source_files(directory="."):
 
 def cmd_list_projects():
     """Print all supported project names and exit."""
-    print("Supported 42 Common Core projects:")
+    logger.info("Supported 42 Common Core projects:")
     for name in sorted(PROJECTS):
-        print(f"  {name}")
+        logger.info(f"  {name}")
     sys.exit(0)
 
 
@@ -613,12 +657,12 @@ def cmd_validate_projects():
             errors.append(f"'{key}' required_paths entries must all be strings.")
 
     if errors:
-        print("[FAIL] PROJECTS validation failed:")
+        logger.error("PROJECTS validation failed:")
         for err in errors:
-            print(f"  - {err}")
+            logger.error(f"  - {err}")
         sys.exit(1)
 
-    print(f"[OK] PROJECTS validated: {len(PROJECTS)} projects, no issues found.")
+    logger.info(f"PROJECTS validated: {len(PROJECTS)} projects, no issues found.")
     sys.exit(0)
 
 
@@ -628,30 +672,33 @@ def cmd_validate_projects():
 
 
 def main():
+    """Run 42 compliance checks on a project folder.
+
+    Verifies README.md presence and structure, 42 header presence, forbidden
+    function calls, required files/directories, and relink detection.
+    """
     # Handle self-check flags before doing anything else.
     if "--list-projects" in sys.argv:
         cmd_list_projects()
     if "--validate-projects" in sys.argv:
         cmd_validate_projects()
 
-    check_version()
-
     if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <folder_path> <project_name>")
-        print(f"Run '{sys.argv[0]} --list-projects' to see supported projects.")
+        logger.error(f"Usage: {sys.argv[0]} <folder_path> <project_name>")
+        logger.error(f"Run '{sys.argv[0]} --list-projects' to see supported projects.")
         sys.exit(1)
 
     folder_path = sys.argv[1]
     project_name = sys.argv[2]
 
     if not os.path.isdir(folder_path):
-        print(f"[ERROR] Folder not found: {folder_path}")
+        logger.error(f"Folder not found: {folder_path}")
         sys.exit(1)
 
     canonical_name = resolve_project_name(project_name)
     if canonical_name is None:
-        print(
-            f"[ERROR] Unknown project '{project_name}'. "
+        logger.error(
+            f"Unknown project '{project_name}'. "
             f"Run '{sys.argv[0]} --list-projects' to see supported projects."
         )
         sys.exit(1)
@@ -681,15 +728,15 @@ def main():
 
     # Print warnings (non-blocking)
     for warn in warnings:
-        print(f"[WARN] {warn}")
+        logger.warning(warn)
 
     if errors:
-        print("[FAIL] Compliance check failed:")
+        logger.error("Compliance check failed:")
         for err in errors:
-            print(f"  - {err}")
+            logger.error(f"  - {err}")
         sys.exit(1)
 
-    print("[OK] All compliance checks passed.")
+    logger.info("All compliance checks passed.")
     sys.exit(0)
 
 
